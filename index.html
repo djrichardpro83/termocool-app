@@ -635,7 +635,20 @@
   const USE_BACKEND = true;
 
   const TermoCoolAPI = {
-    async call(action, payload){
+    async callGet(action, payload){
+      const params = new URLSearchParams();
+      params.set('action', action);
+      params.set('payload', JSON.stringify(payload || {}));
+      let res;
+      try {
+        res = await fetch(API_URL + '?' + params.toString(), { method: 'GET' });
+      } catch(err){
+        return { ok:false, error: 'No se pudo conectar con el servidor (' + err.message + ')' };
+      }
+      try { return await res.json(); }
+      catch(err){ return { ok:false, error: 'El servidor respondió, pero no en el formato esperado.' }; }
+    },
+    async callPost(action, payload){
       let res;
       try {
         res = await fetch(API_URL, {
@@ -644,19 +657,16 @@
           body: JSON.stringify(Object.assign({ action }, payload))
         });
       } catch(err){
-        return { ok:false, error: 'No se pudo conectar con el servidor. Revisa tu conexión o cómo se está abriendo esta página (ver nota abajo).' };
+        return { ok:false, error: 'No se pudo conectar con el servidor (' + err.message + ')' };
       }
-      try {
-        return await res.json();
-      } catch(err){
-        return { ok:false, error: 'El servidor respondió, pero no en el formato esperado.' };
-      }
+      try { return await res.json(); }
+      catch(err){ return { ok:false, error: 'El servidor respondió, pero no en el formato esperado.' }; }
     },
-    login(pin){ return this.call('login', { pin }); },
-    getDashboard(){ return this.call('getDashboard', {}); },
-    getFicha(equipo_id){ return this.call('getFicha', { equipo_id }); },
-    getChecklist(checklist_tipo){ return this.call('getChecklist', { checklist_tipo }); },
-    submitServicio(data){ return this.call('submitServicio', data); }
+    login(pin){ return this.callGet('login', { pin }); },
+    getDashboard(){ return this.callGet('getDashboard', {}); },
+    getFicha(equipo_id){ return this.callGet('getFicha', { equipo_id }); },
+    getChecklist(checklist_tipo){ return this.callGet('getChecklist', { checklist_tipo }); },
+    submitServicio(data){ return this.callPost('submitServicio', data); }
   };
 
   /* ================= CATÁLOGO DE EQUIPOS (demo) ================= */
