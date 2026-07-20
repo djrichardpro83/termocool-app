@@ -195,6 +195,14 @@
   .scan-hint b{display:block;font-family:'Poppins';font-weight:700;font-size:15.5px;margin-bottom:5px;}
   .scan-hint span{font-size:12.5px;color:rgba(255,255,255,.55);}
   .scan-tap-note{font-size:11px;color:rgba(255,255,255,.4);margin-top:-10px;}
+  .link-btn{background:none;border:none;color:var(--cyan);font-weight:700;font-size:12.5px;text-decoration:underline;margin-top:10px;}
+
+  /* ---------- REGISTRAR EQUIPO NUEVO ---------- */
+  .nuevo-screen{background:var(--bg);}
+  .nuevo-screen .top-nav{background:transparent;}
+  .nuevo-body{padding:4px 20px 140px;flex:1;}
+  .nuevo-body select.text-input{-webkit-appearance:none;appearance:none;background:#fff;}
+  #clienteNuevoFields{background:var(--bg);border-radius:14px;padding:2px 12px 6px;margin:8px 0 4px;}
 
   /* ---------- FICHA EQUIPO ---------- */
   .ficha-screen{background:var(--bg);}
@@ -415,6 +423,50 @@
         <span>Está pegado en la carcasa o en la ficha técnica</span>
       </div>
       <div class="scan-tap-note">Toca el recuadro para simular el escaneo</div>
+      <button class="link-btn" id="btnIrRegistrar">+ Este equipo no tiene QR todavía — regístralo</button>
+    </div>
+  </section>
+
+  <!-- ============ REGISTRAR EQUIPO NUEVO ============ -->
+  <section class="screen nuevo-screen" id="screen-nuevo-equipo">
+    <div class="top-nav">
+      <button class="back-btn" onclick="showScreen('screen-scan')">←</button>
+      <div><div class="tn-title">Registrar equipo nuevo</div></div>
+    </div>
+    <div class="nuevo-body">
+      <div class="field-label">Cliente</div>
+      <select class="text-input" id="selCliente">
+        <option value="">Cargando…</option>
+      </select>
+
+      <div id="clienteNuevoFields">
+        <div class="field-label">Nombre del cliente</div>
+        <input class="text-input" id="nuevoClienteNombre" placeholder="Ej. Panadería Doré">
+        <div class="field-label">Dirección</div>
+        <input class="text-input" id="nuevoClienteDireccion" placeholder="Ej. Sector La Lago, Maracaibo">
+        <div class="field-label">Contacto (opcional)</div>
+        <input class="text-input" id="nuevoClienteContacto" placeholder="Teléfono o referencia">
+      </div>
+
+      <div class="field-label">Tipo de equipo</div>
+      <select class="text-input" id="selTipoEquipo">
+        <option value="Cuarto Frío|cuarto-frio">Cuarto Frío</option>
+        <option value="Cámara de Conservación|cuarto-frio">Cámara de Conservación</option>
+        <option value="Cámara de Congelación|cuarto-frio">Cámara de Congelación</option>
+        <option value="Vitrina Refrigerada|cuarto-frio">Vitrina Refrigerada</option>
+        <option value="Mini Split|mini-split">Mini Split</option>
+        <option value="VRF / VRV|mini-split">VRF / VRV</option>
+        <option value="Lavadora|linea-blanca">Lavadora</option>
+        <option value="Secadora|linea-blanca">Secadora</option>
+        <option value="Nevera / Congelador comercial|linea-blanca">Nevera / Congelador comercial</option>
+        <option value="Otro|cuarto-frio">Otro</option>
+      </select>
+
+      <div class="field-label">Marca / modelo (opcional)</div>
+      <input class="text-input" id="nuevoEquipoMarca" placeholder="Ej. LG Dual Inverter">
+    </div>
+    <div class="cta-dock">
+      <button class="cta-btn" id="btnCrearEquipo">Crear y continuar</button>
     </div>
   </section>
 
@@ -625,48 +677,29 @@
   }
 
   /* ================= CONEXIÓN CON EL BACKEND (Apps Script) =================
-     1. Despliega backend/Code.gs (ver backend/README.md) y copia la URL /exec
-     2. Pégala abajo en API_URL
-     3. Cambia USE_BACKEND a true
-     Mientras USE_BACKEND sea false, la app sigue funcionando con los datos
-     de ejemplo de abajo — así este archivo nunca deja de servir como demo.
+     Esta página se sirve DESDE el propio Apps Script (mismo origen),
+     así que hablamos con el backend con google.script.run — el puente
+     oficial de Apps Script — en vez de fetch(). Cero CORS, cero fetch.
   ============================================================================ */
-  const API_URL = 'https://script.google.com/macros/s/AKfycbxBUTAmnm6qvAnpn6edWAFWQ74G79evhx22vTfYzCXp6u4TkZvd5HMc1NWQEUBaqD0O/exec';
   const USE_BACKEND = true;
 
+  function callServer(fnName, ...args){
+    return new Promise((resolve)=>{
+      google.script.run
+        .withSuccessHandler((res)=> resolve(res))
+        .withFailureHandler((err)=> resolve({ ok:false, error: String(err) }))
+        [fnName](...args);
+    });
+  }
+
   const TermoCoolAPI = {
-    async callGet(action, payload){
-      const params = new URLSearchParams();
-      params.set('action', action);
-      params.set('payload', JSON.stringify(payload || {}));
-      let res;
-      try {
-        res = await fetch(API_URL + '?' + params.toString(), { method: 'GET' });
-      } catch(err){
-        return { ok:false, error: 'No se pudo conectar con el servidor (' + err.message + ')' };
-      }
-      try { return await res.json(); }
-      catch(err){ return { ok:false, error: 'El servidor respondió, pero no en el formato esperado.' }; }
-    },
-    async callPost(action, payload){
-      let res;
-      try {
-        res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS, ver backend/Code.gs
-          body: JSON.stringify(Object.assign({ action }, payload))
-        });
-      } catch(err){
-        return { ok:false, error: 'No se pudo conectar con el servidor (' + err.message + ')' };
-      }
-      try { return await res.json(); }
-      catch(err){ return { ok:false, error: 'El servidor respondió, pero no en el formato esperado.' }; }
-    },
-    login(pin){ return this.callGet('login', { pin }); },
-    getDashboard(){ return this.callGet('getDashboard', {}); },
-    getFicha(equipo_id){ return this.callGet('getFicha', { equipo_id }); },
-    getChecklist(checklist_tipo){ return this.callGet('getChecklist', { checklist_tipo }); },
-    submitServicio(data){ return this.callPost('submitServicio', data); }
+    login(pin){ return callServer('apiLogin', pin); },
+    getDashboard(){ return callServer('apiGetDashboard'); },
+    getFicha(equipo_id){ return callServer('apiGetFicha', equipo_id); },
+    getChecklist(checklist_tipo){ return callServer('apiGetChecklist', checklist_tipo); },
+    submitServicio(data){ return callServer('apiSubmitServicio', data); },
+    getClientes(){ return callServer('apiGetClientes'); },
+    registrarEquipo(data){ return callServer('apiRegistrarEquipo', data); }
   };
 
   /* ================= CATÁLOGO DE EQUIPOS (demo) ================= */
@@ -889,6 +922,86 @@
     } else {
       openFicha('nuevo');
     }
+  });
+
+  /* ================= REGISTRAR EQUIPO NUEVO (sin QR aún) ================= */
+  document.getElementById('btnIrRegistrar').addEventListener('click', abrirRegistrarEquipo);
+
+  document.getElementById('selCliente').addEventListener('change', toggleClienteNuevoFields);
+
+  function toggleClienteNuevoFields(){
+    const esNuevo = document.getElementById('selCliente').value === '__nuevo__' || document.getElementById('selCliente').value === '';
+    document.getElementById('clienteNuevoFields').style.display = esNuevo ? 'block' : 'none';
+  }
+
+  async function abrirRegistrarEquipo(){
+    document.getElementById('nuevoClienteNombre').value = '';
+    document.getElementById('nuevoClienteDireccion').value = '';
+    document.getElementById('nuevoClienteContacto').value = '';
+    document.getElementById('nuevoEquipoMarca').value = '';
+
+    const sel = document.getElementById('selCliente');
+    sel.innerHTML = '<option value="">Cargando…</option>';
+    showScreen('screen-nuevo-equipo');
+
+    if(USE_BACKEND){
+      const data = await TermoCoolAPI.getClientes();
+      sel.innerHTML = '';
+      const optNuevo = document.createElement('option');
+      optNuevo.value = '__nuevo__';
+      optNuevo.textContent = '+ Cliente nuevo';
+      sel.appendChild(optNuevo);
+      if(data.ok){
+        (data.clientes || []).forEach(c=>{
+          const o = document.createElement('option');
+          o.value = c.cliente_id;
+          o.textContent = c.nombre || '(sin nombre)';
+          sel.appendChild(o);
+        });
+      }
+      sel.value = '__nuevo__';
+    } else {
+      sel.innerHTML = '<option value="__nuevo__">+ Cliente nuevo (modo demo)</option>';
+    }
+    toggleClienteNuevoFields();
+  }
+
+  document.getElementById('btnCrearEquipo').addEventListener('click', async ()=>{
+    if(!USE_BACKEND){
+      toast('Registrar equipo nuevo necesita el backend conectado');
+      return;
+    }
+    const selCliente = document.getElementById('selCliente').value;
+    const [tipoEquipo, checklistTipo] = document.getElementById('selTipoEquipo').value.split('|');
+    const nombreClienteNuevo = document.getElementById('nuevoClienteNombre').value.trim();
+
+    if((selCliente === '__nuevo__' || selCliente === '') && !nombreClienteNuevo){
+      toast('Escribe el nombre del cliente');
+      return;
+    }
+
+    const btn = document.getElementById('btnCrearEquipo');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Creando…';
+
+    const res = await TermoCoolAPI.registrarEquipo({
+      cliente_id: selCliente,
+      cliente_nombre: nombreClienteNuevo,
+      cliente_direccion: document.getElementById('nuevoClienteDireccion').value.trim(),
+      cliente_contacto: document.getElementById('nuevoClienteContacto').value.trim(),
+      tipo_equipo: tipoEquipo,
+      checklist_tipo: checklistTipo,
+      marca: document.getElementById('nuevoEquipoMarca').value.trim()
+    });
+
+    btn.disabled = false;
+    btn.textContent = original;
+
+    if(!res.ok){ toast(res.error || 'No se pudo crear el equipo'); return; }
+
+    toast('Equipo creado ✅ — ya puedes hacerle el primer servicio');
+    await openFicha(res.equipo_id);
   });
 
   const serviceCards = document.querySelectorAll('.service-card');
